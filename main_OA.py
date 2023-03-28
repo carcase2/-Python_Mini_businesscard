@@ -1,7 +1,8 @@
 import sys
 import cv2
+import re
 import pytesseract
-from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget, QPushButton, QFileDialog
+from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
 from PySide6.QtGui import QImage, QPixmap
 
 # Ensure you have the correct Tesseract executable path
@@ -20,23 +21,34 @@ def read_business_card(image_path):
     _, threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
     # Extract text using OCR
-    text = pytesseract.image_to_string(threshold)
+    text_kor = pytesseract.image_to_string(threshold, lang='kor')
+    text_eng = pytesseract.image_to_string(threshold)
 
-    return text
+    return text_kor,text_eng
 
 class BusinessCardReader(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.label = QLabel()
-        self.label.setWordWrap(True)
+        self.label_kor = QLabel()
+        self.label_kor.setWordWrap(True)
+
+        self.label_eng = QLabel()
+        self.label_eng.setWordWrap(True)
 
         self.button = QPushButton('Open Image')
         self.button.clicked.connect(self.load_image)
 
+        
         layout = QVBoxLayout()
+        layout1 = QHBoxLayout()
+        
         layout.addWidget(self.button)
-        layout.addWidget(self.label)
+        
+        layout1.addWidget(self.label_kor)
+        layout1.addWidget(self.label_eng)
+
+        layout.addLayout(layout1)
 
         self.setLayout(layout)
         self.setWindowTitle('Business Card Reader')
@@ -47,8 +59,16 @@ class BusinessCardReader(QWidget):
         image_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.xpm *.jpg *.bmp *.jpeg)", options=options)
         
         if image_path:
-            text = read_business_card(image_path)
-            self.label.setText(text)
+            text_kor,text_eng = read_business_card(image_path)
+            self.label_kor.setText(text_kor)
+            self.label_eng.setText(text_eng)
+        
+        pattern = r'\b010[-\s]?\d{3,4}[-\s]?\d{4}\b'
+        result_1 = re.search(pattern, text_kor)
+        result_2 = re.search(pattern, text_kor)        
+        print(result_1.group())
+        print(result_2.group())
+        print(text_kor)
 
 def main():
     app = QApplication(sys.argv)
