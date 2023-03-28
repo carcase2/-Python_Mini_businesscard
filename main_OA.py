@@ -41,7 +41,7 @@ class BusinessCardReader(QWidget):
 
         
         layout = QVBoxLayout()
-        layout1 = QHBoxLayout()
+        layout1 = QVBoxLayout()
         
         layout.addWidget(self.button)
         
@@ -60,15 +60,23 @@ class BusinessCardReader(QWidget):
         
         if image_path:
             text_kor,text_eng = read_business_card(image_path)
-            self.label_kor.setText(text_kor)
-            self.label_eng.setText(text_eng)
+            text_kor_without_spaces = "".join(text_kor.split())
+            text_eng_without_spaces = "".join(text_eng.split())
+            self.label_kor.setText(text_kor_without_spaces)
+            self.label_eng.setText(text_eng_without_spaces)
         
         pattern = r'\b010[-\s]?\d{3,4}[-\s]?\d{4}\b'
-        result_1 = re.search(pattern, text_kor)
-        result_2 = re.search(pattern, text_kor)        
+        result_1 = re.search(pattern, text_kor_without_spaces)
+        result_2 = re.search(pattern, text_eng_without_spaces)        
         print(result_1.group())
         print(result_2.group())
-        print(text_kor)
+        
+        # text_kor_without_spaces = "".join(text_kor.split())
+
+        
+        for character in text_kor_without_spaces:
+            print(character)
+        
 
 def main():
     app = QApplication(sys.argv)
