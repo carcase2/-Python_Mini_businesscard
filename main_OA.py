@@ -62,7 +62,7 @@ def read_business_card(image_path):
         print(f"Email: {email}")
     else:
         print("No email found.")
-    return text_kor,text_eng
+    return text_kor,text_eng    
 
 def extract_email(text):
     pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
@@ -108,8 +108,20 @@ class BusinessCardReader(QWidget):
             text_kor,text_eng = read_business_card(image_path)
             text_kor_without_spaces = "".join(text_kor.split())
             text_eng_without_spaces = "".join(text_eng.split())
-            self.label_kor.setText(text_kor_without_spaces)
-            self.label_eng.setText(text_eng_without_spaces)
+            self.label_kor.setText(text_kor)
+            self.label_eng.setText(text_eng)
+            print(type(text_eng))
+            location = text_eng.find("FAX")
+            print(location)
+            print(text_eng[112])
+            print(text_eng[113])
+            print(text_eng[114])
+            print(location + len("FAX"))
+            fax_string = text_eng[location + 3:location + 18]
+            pattern = r'\b\d{2,3}[-\s]?\d{3,4}[-\s]?\d{4}\b'
+            result_2 = re.search(pattern, fax_string) 
+            print(fax_string)
+            print(result_2.group())
         
         pattern = r'\b010[-\s]?\d{3,4}[-\s]?\d{4}\b'
         result_1 = re.search(pattern, text_kor)
