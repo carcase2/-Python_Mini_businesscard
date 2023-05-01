@@ -4,6 +4,8 @@ import re
 import pytesseract
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
 from PySide6.QtGui import QImage, QPixmap
+from pymongo import MongoClient
+
 
 # Ensure you have the correct Tesseract executable path
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -15,7 +17,36 @@ people = {
     'phone': [],
 }
 
+def connect_to_db():
+    # Connect to local MongoDB instance
+    client = MongoClient('mongodb+srv://carcase2:1850017@cluster0.9gddo.mongodb.net/?retryWrites=true&w=majority')
+    
+    # Create or connect to the 'business_cards' database
+    db = client['business_cards']
+    
+    # Create or connect to the 'contacts' collection
+    contacts_collection = db['contacts']
+    
+    print("ok mongodb")
+    
+    return contacts_collection
+
+def save_to_db(collection, email, phone, fax):
+    # Create a dictionary to store the contact data
+    contact_data = {
+        'email': email,
+        'phone': phone,
+        'fax' : fax
+    }
+    
+    # Insert the contact data into the MongoDB collection
+    result = collection.insert_one(contact_data)
+    
+    # Print the result
+    print(f"Data saved with ID: {result.inserted_id}")
+
 def read_business_card(image_path):
+    global image
     # Load the image
     image = cv2.imread(image_path)
     
@@ -52,16 +83,11 @@ def read_business_card(image_path):
     text_kor = pytesseract.image_to_string(threshold, lang='kor')
     text_eng = pytesseract.image_to_string(threshold)
         
-    text_eng = text_eng.replace("!", "1")
+    # text_eng = text_eng.replace("!", "1")
     
     # print(text_eng)
     # print(text_kor)
-    email = extract_email(text_eng)
-    
-    if email:
-        print(f"Email: {email}")
-    else:
-        print("No email found.")
+
     return text_kor,text_eng    
 
 def extract_email(text):
@@ -75,6 +101,26 @@ def extract_email(text):
 class BusinessCardReader(QWidget):
     def __init__(self):
         super().__init__()
+        
+        
+        
+        self.label_Email_text = QLabel()
+        # self.label_Email.setWordWrap(True)
+        self.label_Email_text.setText("E-mail")
+        
+        self.label_Email = QLabel()
+        self.label_Email.setWordWrap(True)
+
+        self.label_Phone_1 = QLabel()
+        self.label_Phone_1_text = QLabel()
+        self.label_Phone_1_text.setText("Phone")        
+        self.label_Phone_1.setWordWrap(True)
+
+        self.label_Fax = QLabel()
+        self.label_Fax_text = QLabel()
+        self.label_Fax_text.setText("FAX")
+
+        self.label_Fax.setWordWrap(True)
 
         self.label_kor = QLabel()
         self.label_kor.setWordWrap(True)
@@ -89,11 +135,28 @@ class BusinessCardReader(QWidget):
         layout = QVBoxLayout()
         layout1 = QVBoxLayout()
         
-        layout.addWidget(self.button)
+        layout_email = QHBoxLayout()
+        layout_Phone1 = QHBoxLayout()
+        layout_Fax = QHBoxLayout()
         
+        layout_email.addWidget(self.label_Email_text)
+        layout_email.addWidget(self.label_Email)
+        
+        layout_Phone1.addWidget(self.label_Phone_1_text)
+        layout_Phone1.addWidget(self.label_Phone_1)
+        
+        layout_Fax.addWidget(self.label_Fax_text)
+        layout_Fax.addWidget(self.label_Fax)
+       
+        layout.addWidget(self.button)        
         layout1.addWidget(self.label_kor)
         layout1.addWidget(self.label_eng)
-
+        
+        
+        layout1.addLayout(layout_email)
+        layout1.addLayout(layout_Phone1)
+        layout1.addLayout(layout_Fax)
+        
         layout.addLayout(layout1)
 
         self.setLayout(layout)
@@ -103,41 +166,88 @@ class BusinessCardReader(QWidget):
         options = QFileDialog.Options()
         options |= QFileDialog.ReadOnly
         image_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.xpm *.jpg *.bmp *.jpeg)", options=options)
-        
+        contacts_collection = connect_to_db()
         if image_path:
             text_kor,text_eng = read_business_card(image_path)
             text_kor_without_spaces = "".join(text_kor.split())
             text_eng_without_spaces = "".join(text_eng.split())
-            self.label_kor.setText(text_kor)
-            self.label_eng.setText(text_eng)
-            print(type(text_eng))
+            pixmap = QPixmap(image_path)
+            self.label_kor.setPixmap(pixmap)
+            # self.label_eng.setText(text_eng)
+            # print(type(text_eng))
+            print(text_kor_without_spaces)
+            # fax 글짜 위치 찾기 위해서
             location = text_eng.find("FAX")
-            print(location)
-            print(text_eng[112])
-            print(text_eng[113])
-            print(text_eng[114])
-            print(location + len("FAX"))
+            # print(location)
+            # print(text_eng[112])
+            # print(text_eng[113])
+            # print(text_eng[114])
+            # print(location + len("FAX"))
             fax_string = text_eng[location + 3:location + 18]
             pattern = r'\b\d{2,3}[-\s]?\d{3,4}[-\s]?\d{4}\b'
-            result_2 = re.search(pattern, fax_string) 
-            print(fax_string)
-            print(result_2.group())
-        
-        pattern = r'\b010[-\s]?\d{3,4}[-\s]?\d{4}\b'
-        result_1 = re.search(pattern, text_kor)
-        result_2 = re.search(pattern, text_eng)        
-        
-        
-        if result_1 is not None and result_2 is not None:
-            print("휴대폰",result_1.group())
-            print("휴대폰",result_2.group())
-        else:            
-            print("No match found.")
+            result_fax = re.search(pattern, fax_string) 
+            if result_fax is not None:
+                self.label_Fax.setText(result_fax.group())
+            else:
+                print(fax_string)
+                
+            # print(result_fax.group())
             
+            # self.label_Fax.setText(result_fax.group())
+            
+            pattern = r'\b010[-\s]?\d{3,4}[-\s]?\d{4}\b'
+            result_1 = re.search(pattern, text_kor)
+            result_phone = re.search(pattern, text_eng)        
+
+            location = text_kor_without_spaces.find("김")
+            print('location = ', location)
+            print(text_kor_without_spaces[10])
+            print(text_kor_without_spaces[11])
+            print(text_kor_without_spaces[12])
+                                                
+            # if result_1 is not None and result_phone is not None:
+            #     print("휴대폰",result_1.group())
+            #     print("휴대폰",result_phone.group())
+            #     self.label_Phone_1.setText(result_phone.group())
+            # else:            
+            #     print("No match found.")
+                
+            email = extract_email(text_eng)
+            print(text_eng)
+            
+            if email:
+                print(f"Email: {email}")
+                self.label_Email.setText(email)
+                
+            else:
+                email="No email found."
+                self.label_Email.setText(email)
+                # print("No email found.")    
+        
+            if result_fax is not None : 
+                fax_group = result_fax.group()
+                # save_to_db(contacts_collection, email, result_phone.group(), result_fax.group())     
+            else:
+                print("No fax found.")
+                fax_group = "No fax found."
+                # save_to_db(contacts_collection, email, result_phone.group(), fax_group)     
+                
+            if result_phone is not None : 
+                # save_to_db(contacts_collection, email, result_phone.group(), result_fax.group())     
+                phone_group = result_phone.group()
+            else:
+                print("No phone found.")
+                phone_group = "No phone found."
+                # save_to_db(contacts_collection, email, result_phone.group(), fax_group)   
+            
+            self.label_Fax.setText(fax_group)          
+            self.label_Phone_1.setText(phone_group)
+            
+        save_to_db(contacts_collection, email, phone_group, fax_group)         
         # Append values for the second person
         people['names'].append('Jane Smith')
         people['ages'].append(28)
-        people['phone'].append(result_1.group())
+        people['phone'].append(phone_group)
 
         print(people['phone'])
                 
