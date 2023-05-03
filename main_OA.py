@@ -2,9 +2,10 @@ import sys
 import cv2
 import re
 import pytesseract
-from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog
+from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QFileDialog, QFrame, QLineEdit, QListWidget
 from PySide6.QtGui import QImage, QPixmap
 from pymongo import MongoClient
+from PySide6.QtCore import Qt
 
 
 # Ensure you have the correct Tesseract executable path
@@ -101,24 +102,29 @@ def extract_email(text):
 class BusinessCardReader(QWidget):
     def __init__(self):
         super().__init__()
+        self.initUI()
         
-        
+    def initUI(self):
+        self.setFixedSize(800, 600)  # 창 크기를 800x600으로 설정
+        self.setWindowTitle("Business Card Reader")
+        self.show()    
         
         self.label_Email_text = QLabel()
         # self.label_Email.setWordWrap(True)
-        self.label_Email_text.setText("E-mail")
+        self.label_Email_text.setFixedSize(100, 50)
         
         self.label_Email = QLabel()
         self.label_Email.setWordWrap(True)
 
         self.label_Phone_1 = QLabel()
         self.label_Phone_1_text = QLabel()
-        self.label_Phone_1_text.setText("Phone")        
+        self.label_Phone_1_text.setFixedSize(100, 50)
+                  
         self.label_Phone_1.setWordWrap(True)
 
         self.label_Fax = QLabel()
         self.label_Fax_text = QLabel()
-        self.label_Fax_text.setText("FAX")
+        self.label_Fax_text.setFixedSize(100, 50)
 
         self.label_Fax.setWordWrap(True)
 
@@ -129,15 +135,22 @@ class BusinessCardReader(QWidget):
         self.label_eng.setWordWrap(True)
 
         self.button = QPushButton('Open Image')
+        self.button.setFixedSize(400, 50)
+
         self.button.clicked.connect(self.load_image)
 
-        
+        layout_main = QHBoxLayout()
         layout = QVBoxLayout()
         layout1 = QVBoxLayout()
-        
+        layout_right = QVBoxLayout()
+
         layout_email = QHBoxLayout()
         layout_Phone1 = QHBoxLayout()
         layout_Fax = QHBoxLayout()
+        
+        label_right = QLabel("This is an example text for the right layout.")
+        layout_right.addWidget(label_right)
+        
         
         layout_email.addWidget(self.label_Email_text)
         layout_email.addWidget(self.label_Email)
@@ -152,27 +165,61 @@ class BusinessCardReader(QWidget):
         layout1.addWidget(self.label_kor)
         layout1.addWidget(self.label_eng)
         
-        
         layout1.addLayout(layout_email)
         layout1.addLayout(layout_Phone1)
         layout1.addLayout(layout_Fax)
         
+        container1 = QWidget()
+        container1.setLayout(layout1)
+        container1.setFixedSize(400, 500)
+        
+        # 검색 창 및 목록 창 위젯 생성
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search")
+        self.list_widget = QListWidget()
+    
+        # 검색 창 및 목록 창 위젯을 layout_right에 추가
+        layout_right.addWidget(self.search_bar)
+        layout_right.addWidget(self.list_widget)
+        
+        self.label_Email_text.setText("E-mail")
+        self.label_Phone_1_text.setText("Phone")      
+        self.label_Fax_text.setText("FAX")
+        
+        layout.addWidget(container1)
         layout.addLayout(layout1)
+        
+        
+        
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        
+        layout_main.addLayout(layout)
+        layout_main.addWidget(separator)
+        layout_main.addLayout(layout_right)
+        
+        self.setLayout(layout_main)
 
-        self.setLayout(layout)
-        self.setWindowTitle('Business Card Reader')
 
     def load_image(self):
+        desired_width = 400
+        desired_height = 300
+        
         options = QFileDialog.Options()
         options |= QFileDialog.ReadOnly
         image_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.xpm *.jpg *.bmp *.jpeg)", options=options)
         contacts_collection = connect_to_db()
         if image_path:
+            
             text_kor,text_eng = read_business_card(image_path)
             text_kor_without_spaces = "".join(text_kor.split())
             text_eng_without_spaces = "".join(text_eng.split())
             pixmap = QPixmap(image_path)
-            self.label_kor.setPixmap(pixmap)
+            scaled_pixmap = pixmap.scaled(desired_width, desired_height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.label_kor.setFixedSize(desired_width, desired_height)
+            self.label_kor.setPixmap(scaled_pixmap)
+            # self.label_kor.setPixmap(pixmap)
             # self.label_eng.setText(text_eng)
             # print(type(text_eng))
             print(text_kor_without_spaces)
@@ -214,6 +261,8 @@ class BusinessCardReader(QWidget):
                 
             email = extract_email(text_eng)
             print(text_eng)
+            
+            
             
             if email:
                 print(f"Email: {email}")
